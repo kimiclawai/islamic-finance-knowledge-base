@@ -16,7 +16,7 @@ GITHUB_REPO = os.getenv('GITHUB_REPO', 'kimiclawai/islamic-finance-knowledge-bas
 
 # Настройки
 MAX_MESSAGE_LENGTH = 4096
-CONTEXT_WINDOW = 5  # Уменьшили для Claude
+CONTEXT_WINDOW = 5
 
 # Дисклеймер
 DISCLAIMER = """⚠️ <b>Важно!</b>

@@ -1,26 +1,24 @@
 """
 Islamic Finance AI Consultant — Telegram Bot
-Main bot implementation
+Uses Claude (Anthropic) for AI responses
 """
 import logging
-import asyncio
 from typing import List, Dict, Any
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     ContextTypes,
     filters
 )
-import openai
+from anthropic import Anthropic
 
 from config import (
     TELEGRAM_BOT_TOKEN,
-    OPENAI_API_KEY,
-    OPENAI_MODEL,
+    CLAUDE_API_KEY,
+    CLAUDE_MODEL,
     DISCLAIMER,
     SYSTEM_PROMPT,
     MAX_MESSAGE_LENGTH
@@ -35,58 +33,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize components
-openai.api_key = OPENAI_API_KEY
+# Initialize
+client = Anthropic(api_key=CLAUDE_API_KEY)
 knowledge_loader = KnowledgeLoader()
-context_manager = ContextManager()
+context_manager = ContextManager(max_history=3)
 
 # Track users who saw disclaimer
 user_disclaimers: set = set()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send welcome message with disclaimer."""
+    """Send welcome message."""
     user_id = update.effective_user.id
     user_disclaimers.add(user_id)
-    
-    keyboard = [
-        [InlineKeyboardButton("📚 Начать обучение", callback_data='learn')],
-        [InlineKeyboardButton("❓ Задать вопрос", callback_data='ask')],
-        [InlineKeyboardButton("🔍 Поиск", callback_data='search')],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        DISCLAIMER,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await update.message.reply_text(DISCLAIMER, parse_mode='HTML')
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show help message."""
-    help_text = """📚 <b>Доступные команды:</b>
+    """Show help."""
+    help_text = """📚 <b>Команды:</b>
 
 <b>Основные:</b>
-/start — Начать разговор
-/help — Эта справка
-/search [запрос] — Поиск по базе знаний
+/start — начать
+/help — справка
+/search [запрос] — поиск по базе
 
 <b>Тематические:</b>
-/glossary [термин] — Глоссарий терминов
-/contracts — Список исламских контрактов
-/madhabs — Школы исламского права
-/cases — Кейсы из разных стран
-/compare — Сравнение продуктов
+/glossary [термин] — глоссарий
+/contracts — контракты
+/madhabs — школы права
+/cases — кейсы стран
 
 <b>Примеры вопросов:</b>
 • "Что такое мурабаха?"
-• "В чём разница между мударабой и мушаракой?"
 • "Как работает Sukuk?"
-• "Расскажи о пилотном проекте в России"
+• "Расскажи о пилоте в России"
 
-⚠️ Помни: я не выдаю фатвы!
-"""
+⚠️ Я не выдаю фатвы!"""
     await update.message.reply_text(help_text, parse_mode='HTML')
 
 
@@ -94,33 +77,18 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Search knowledge base."""
     query = ' '.join(context.args)
     if not query:
-        await update.message.reply_text(
-            "🔍 Использование: /search [запрос]\n\n"
-            "Пример: /search мурабаха"
-        )
+        await update.message.reply_text("🔍 Использование: /search [запрос]")
         return
     
-    await update.message.reply_text(f"🔍 Ищу: <i>{query}</i>...", parse_mode='HTML')
-    
-    # Search in knowledge base
     results = knowledge_loader.search(query)
     
     if results:
-        response = f"📚 <b>Результаты поиска:</b>\n\n"
-        for i, result in enumerate(results[:5], 1):
-            response += f"{i}. <b>{result['title']}</b>\n"
-            response += f"{result['snippet'][:200]}...\n"
-            response += f"📍 {result['source']}\n\n"
-        
-        if len(response) > MAX_MESSAGE_LENGTH:
-            response = response[:MAX_MESSAGE_LENGTH - 3] + "..."
-        
+        response = f"📚 <b>Результаты:</b>\n\n"
+        for i, result in enumerate(results[:3], 1):
+            response += f"{i}. <b>{result['title']}</b>\n{result['snippet'][:150]}...\n\n"
         await update.message.reply_text(response, parse_mode='HTML')
     else:
-        await update.message.reply_text(
-            "❌ По вашему запросу ничего не найдено.\n"
-            "Попробуйте переформулировать или используйте /help"
-        )
+        await update.message.reply_text("❌ Ничего не найдено. Попробуйте другие слова.")
 
 
 async def glossary_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -128,212 +96,116 @@ async def glossary_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     term = ' '.join(context.args)
     
     if not term:
-        await update.message.reply_text(
-            "📖 Использование: /glossary [термин]\n\n"
-            "Примеры:\n"
-            "/glossary мурабаха\n"
-            "/glossary сукук\n"
-            "/glossary риба"
-        )
+        await update.message.reply_text("📖 /glossary [термин]\nПример: /glossary мурабаха")
         return
     
     entry = knowledge_loader.get_glossary_entry(term)
     
     if entry:
         response = f"📖 <b>{entry['term']}</b>\n\n"
-        response += f"<i>English:</i> {entry['english']}\n"
-        response += f"<i>العربية:</i> {entry['arabic']}\n\n"
-        response += f"{entry['definition']}"
-        
+        response += f"<i>EN:</i> {entry['english']}\n"
+        response += f"<i>AR:</i> {entry['arabic']}\n\n"
+        response += f"{entry['definition'][:500]}"
         await update.message.reply_text(response, parse_mode='HTML')
     else:
-        await update.message.reply_text(
-            f"❌ Термин \"{term}\" не найден в глоссарии.\n"
-            f"Попробуйте: мурабаха, иджара, мудараба, сукук, риба, такафул"
-        )
+        await update.message.reply_text(f'❌ Термин "{term}" не найден.')
 
 
 async def contracts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show list of Islamic finance contracts."""
-    contracts_text = """📋 <b>Исламские контракты:</b>
+    """Show contracts list."""
+    text = """📋 <b>Исламские контракты:</b>
 
 <b>Торговые:</b>
-• <b>Мурабаха</b> — продажа с известной наценкой
-• <b>Иджара</b> — аренда
-• <b>Салам</b> — предоплатный контракт
-• <b>Истисна</b> — заказное производство
+• Мурабаха — продажа с наценкой
+• Иджара — аренда
+• Салам — предоплата
+• Истисна — заказное производство
 
-<b>Партнёрские:</b>
-• <b>Мудараба</b> — инвестиционное партнёрство
-• <b>Мушарака</b> — совместное предприятие
+<b>Партнерские:</b>
+• Мудараба — инвестпартнерство
+• Мушарака — совместное предприятие
 
 <b>Прочие:</b>
-• <b>Вакала</b> — доверительное управление
-• <b>Кард хасан</b> — беспроцентный заём
+• Вакала — доверительное управление
+• Кард хасан — беспроцентный заем
 
-Напишите название контракта, чтобы узнать подробности.
-"""
-    await update.message.reply_text(contracts_text, parse_mode='HTML')
+Напишите название для подробностей."""
+    await update.message.reply_text(text, parse_mode='HTML')
 
 
 async def madhabs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show information about schools of fiqh."""
-    madhabs_text = """⚖️ <b>Школы исламского права (мазхабы):</b>
+    """Show madhabs info."""
+    text = """⚖️ <b>Школы права (мазхабы):</b>
 
-<b>Суннитские:</b>
-
-1️⃣ <b>Ханафитский</b>
-• География: Турция, Центральная Азия, Индия, Пакистан
-• Особенности: Наиболее гибкий подход к современным продуктам
-• Лидер: Имам Абу Ханифа
-
-2️⃣ <b>Маликитский</b>
-• География: Северная Африка, ОАЭ, Кувейт, Катар
-• Особенности: Сильная традиция торгового права
-• Лидер: Имам Малик
-
-3️⃣ <b>Шафиитский</b>
-• География: Малайзия, Индонезия, Египет
-• Особенности: Строгий подход к условиям договоров
-• Лидер: Имам аш-Шафии
-
-4️⃣ <b>Ханбалитский</b>
-• География: Саудовская Аравия, Катар
-• Особенности: Наиболее консервативная школа
-• Лидер: Имам Ибн Ханбаль
+1️⃣ <b>Ханафитский</b> — Турция, Центральная Азия, Пакистан
+2️⃣ <b>Маликитский</b> — Северная Африка, ОАЭ, Катар
+3️⃣ <b>Шафиитский</b> — Малайзия, Индонезия, Египет
+4️⃣ <b>Ханбалитский</b> — Саудовская Аравия
 
 <b>Шиитский:</b>
-• <b>Джафаритский</b> — Иран, Ирак
+• Джафаритский — Иран, Ирак
 
-Разные школы могут иметь разные мнения по одним вопросам — это нормально.
-"""
-    await update.message.reply_text(madhabs_text, parse_mode='HTML')
+Разные школы = разные мнения по одним вопросам."""
+    await update.message.reply_text(text, parse_mode='HTML')
 
 
 async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show case studies."""
-    cases_text = """🌍 <b>Кейсы исламских финансов:</b>
+    text = """🌍 <b>Кейсы:</b>
 
-<b>Пакистан</b> 🇵🇰
-• Полная исламизация банковской системы
-• Meezan Bank — лидер рынка
-• Федеральный шариатский суд
+🇵🇰 <b>Пакистан</b> — полная исламизация, Meezan Bank
+🇲🇾 <b>Малайзия</b> — золотой стандарт, SAC
+🇸🇦 <b>GCC</b> — Vision 2030, Dubai Islamic Bank
+🇹🇷 <b>Турция</b> — Katılım Bankaları
+🇮🇩 <b>Индонезия</b> — BSI, зеленые Sukuk
+🇷🇺 <b>Россия</b> — пилот 2023-2025, Татарстан
 
-<b>Малайзия</b> 🇲🇾
-• Золотой стандарт регулирования
-• Shariah Advisory Council (SAC)
-• Крупнейший рынок Sukuk
-
-<b>GCC</b> 🇸🇦🇦🇪🇶🇦
-• Saudi Vision 2030
-• Dubai Islamic Bank (первый в мире)
-• Qatar Islamic Bank
-
-<b>Турция</b> 🇹🇷
-• Katılım Bankaları (участковые банки)
-• Ziraat Katılım, Albaraka Türk
-
-<b>Индонезия</b> 🇮🇩
-• Bank Syariah Indonesia (BSI)
-• Зелёные Sukuk (первые в мире)
-
-<b>Россия</b> 🇷🇺
-• Пилотный проект 2023-2025
-• Татарстан, Башкортостан, Чечня, Дагестан
-• KazanSummit
-
-Напишите название страны для подробностей.
-"""
-    await update.message.reply_text(cases_text, parse_mode='HTML')
-
-
-async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Compare Islamic vs conventional products."""
-    compare_text = """⚖️ <b>Сравнение: Исламские vs Конвенциональные</b>
-
-<b>Кредиты:</b>
-• Конвенциональный: Процентная ставка, фиксированная
-• Исламский (Мурабаха): Наценка известна заранее
-
-<b>Депозиты:</b>
-• Конвенциональный: Гарантированный процент
-• Исламский (Мудараба): Доля от прибыли, риск распределён
-
-<b>Страхование:</b>
-• Конвенциональное: Продажа риска компании
-• Исламское (Takaful): Совместная гарантия участников
-
-<b>Облигации:</b>
-• Конвенциональные: Долговой инструмент
-• Sukuk: Доля в реальном активе
-
-<b>Ипотека:</b>
-• Конвенциональная: Кредит под процент
-• Исламская (Мушарака): Совместное владение с выкупом
-
-Напишите конкретный продукт для детального сравнения.
-"""
-    await update.message.reply_text(compare_text, parse_mode='HTML')
+Напишите страну для подробностей."""
+    await update.message.reply_text(text, parse_mode='HTML')
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle user messages with AI."""
+    """Handle user messages with Claude."""
     user_id = update.effective_user.id
     
-    # Check if user saw disclaimer
     if user_id not in user_disclaimers:
-        await update.message.reply_text(
-            "⚠️ Пожалуйста, сначала ознакомьтесь с дисклеймером:",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Начать", callback_data='start')
-            ]])
-        )
+        await update.message.reply_text("Нажмите /start для начала")
         return
     
     user_message = update.message.text
     
-    # Show typing indicator
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id,
         action='typing'
     )
     
     try:
-        # Get relevant context from knowledge base
         relevant_knowledge = knowledge_loader.get_relevant_context(user_message)
         
-        # Build messages for OpenAI
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "system", "content": f"Relevant knowledge:\n{relevant_knowledge}"},
-        ]
+        prompt = f"""{SYSTEM_PROMPT}
+
+<b>База знаний (релевантная часть):</b>
+{relevant_knowledge}
+
+<b>Вопрос пользователя:</b>
+{user_message}
+
+<b>Ответь кратко и по существу.</b>"""
         
-        # Add conversation history
-        history = context_manager.get_history(user_id)
-        messages.extend(history)
-        
-        # Add user message
-        messages.append({"role": "user", "content": user_message})
-        
-        # Get AI response
-        response = openai.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=messages,
-            max_tokens=1000,
-            temperature=0.7
+        message = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}]
         )
         
-        ai_response = response.choices[0].message.content
+        ai_response = message.content[0].text
         
-        # Add disclaimer if needed
         if any(word in user_message.lower() for word in ['фатва', 'разрешено', 'запрещено', 'халяль', 'харам']):
-            ai_response += "\n\n⚠️ <i>Это информационный ответ. Для религиозного заключения обратитесь к муфтию.</i>"
+            ai_response += "\n\n⚠️ <i>Образовательная информация. Для фатвы обратитесь к муфтию.</i>"
         
-        # Save to history
         context_manager.add_message(user_id, "user", user_message)
         context_manager.add_message(user_id, "assistant", ai_response)
         
-        # Send response (split if too long)
         if len(ai_response) > MAX_MESSAGE_LENGTH:
             parts = [ai_response[i:i+MAX_MESSAGE_LENGTH] 
                     for i in range(0, len(ai_response), MAX_MESSAGE_LENGTH)]
@@ -343,67 +215,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await update.message.reply_text(ai_response, parse_mode='HTML')
             
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
+        logger.error(f"Error: {e}")
         await update.message.reply_text(
-            "❌ Произошла ошибка при обработке запроса.\n"
-            "Попробуйте переформулировать или используйте /help"
-        )
-
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle button callbacks."""
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == 'start':
-        await start(update, context)
-    elif query.data == 'learn':
-        await query.message.reply_text(
-            "📚 <b>Режим обучения</b>\n\n"
-            "С чего начнём?\n\n"
-            "• /contracts — Исламские контракты\n"
-            "• /madhabs — Школы права\n"
-            "• /glossary — Глоссарий терминов\n"
-            "• /cases — Реальные кейсы",
-            parse_mode='HTML'
-        )
-    elif query.data == 'ask':
-        await query.message.reply_text(
-            "❓ <b>Задайте вопрос!</b>\n\n"
-            "Примеры:\n"
-            "• Что такое мурабаха?\n"
-            "• Как работает Sukuk?\n"
-            "• Расскажи о пилотном проекте в России\n\n"
-            "Или используйте /search для поиска по базе.",
-            parse_mode='HTML'
-        )
-    elif query.data == 'search':
-        await query.message.reply_text(
-            "🔍 Используйте команду /search [запрос]\n\n"
-            "Пример: /search мурабаха"
+            "❌ Ошибка. Попробуйте позже или используйте /help"
         )
 
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle errors."""
-    logger.error(f"Update {update} caused error {context.error}")
-    if update and update.effective_message:
-        await update.effective_message.reply_text(
-            "❌ Произошла ошибка. Попробуйте позже или используйте /help"
-        )
+    logger.error(f"Error: {context.error}")
 
 
 def main() -> None:
-    """Start the bot."""
-    # Load knowledge base
+    """Start bot."""
     logger.info("Loading knowledge base...")
     knowledge_loader.load()
     logger.info("Knowledge base loaded!")
     
-    # Create application
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
-    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("search", search_command))
@@ -411,14 +241,10 @@ def main() -> None:
     application.add_handler(CommandHandler("contracts", contracts_command))
     application.add_handler(CommandHandler("madhabs", madhabs_command))
     application.add_handler(CommandHandler("cases", cases_command))
-    application.add_handler(CommandHandler("compare", compare_command))
     
-    application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
     application.add_error_handler(error_handler)
     
-    # Run
     logger.info("Starting bot...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
