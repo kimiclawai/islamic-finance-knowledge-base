@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ИИ-консультант по исламским финансам</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        
+        .slide.active {
+            opacity: 1;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #e94560, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+        
+        h2 {
+            font-size: 2.5em;
+            margin-bottom: 40px;
+            color: #e94560;
+        }
+        
+        h3 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #ffd700;
+        }
+        
+        .subtitle {
+            font-size: 1.5em;
+            color: #a0a0a0;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .content {
+            max-width: 1000px;
+            width: 100%;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 30px;
+        }
+        
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 30px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: #e94560;
+        }
+        
+        .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #e94560;
+        }
+        
+        .stat-label {
+            font-size: 1.1em;
+            color: #a0a0a0;
+        }
+        
+        ul {
+            list-style: none;
+            font-size: 1.3em;
+            line-height: 2;
+        }
+        
+        li::before {
+            content: "▸ ";
+            color: #e94560;
+            font-weight: bold;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+        
+        th {
+            background: #e94560;
+            padding: 15px;
+            text-align: left;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .highlight {
+            background: linear-gradient(45deg, #e94560, #ff6b6b);
+            padding: 30px 50px;
+            border-radius: 15px;
+            font-size: 1.5em;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .bot-preview {
+            background: #2d2d44;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        
+        .message {
+            background: #e94560;
+            padding: 15px 20px;
+            border-radius: 20px 20px 20px 5px;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        
+        .nav {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+        
+        .nav button {
+            background: #e94560;
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        
+        .nav button:hover {
+            background: #ff6b6b;
+            transform: scale(1.05);
+        }
+        
+        .progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            transition: width 0.3s ease;
+            z-index: 100;
+        }
+        
+        .slide-number {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            font-size: 1.2em;
+            color: #a0a0a0;
+            z-index: 100;
+        }
+        
+        .logo {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .feature-box {
+            background: linear-gradient(135deg, rgba(233,69,96,0.2), rgba(255,107,107,0.2));
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+            border-left: 5px solid #e94560;
+        }
+        
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        
+        .timeline-item {
+            text-align: center;
+            flex: 1;
+            position: relative;
+        }
+        
+        .timeline-item::after {
+            content: "";
+            position: absolute;
+            top: 30px;
+            right: -50%;
+            width: 100%;
+            height: 3px;
+            background: #e94560;
+        }
+        
+        .timeline-item:last-child::after {
+            display: none;
+        }
+        
+        .timeline-dot {
+            width: 60px;
+            height: 60px;
+            background: #e94560;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            margin: 0 auto 15px;
+        }
+        
+        @media print {
+            .slide {
+                position: relative;
+                opacity: 1;
+                page-break-after: always;
+            }
+            .nav, .progress, .slide-number {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="progress" id="progress"></div>
+    <div class="slide-number" id="slideNumber">1 / 12</div>
+    
+    <!-- Slide 1: Title -->
+    <div class="slide active">
+        <div class="logo">🤖</div>
+        <h1>ИИ-консультант<br>по исламским финансам</h1>
+        <p class="subtitle">Telegram-бот с искусственным интеллектом<br>для консультирования клиентов</p>
+        <div class="highlight">
+            Презентация для правления банка
+        </div>
+        <p style="color: #a0a0a0; margin-top: 40px;">Март 2026</p>
+    </div>
+    
+    <!-- Slide 2: Problem -->
+    <div class="slide">
+        <h2>🎯 Проблематика</h2>
+        <div class="content">
+            <div class="grid-2">
+                <div>
+                    <h3>Текущие вызовы</h3>
+                    <ul>
+                        <li>Низкая осведомленность об исламских финансах</li>
+                        <li>Обучение большого штата менеджеров</li>
+                        <li>Длительный цикл консультации (30-60 мин)</li>
+                        <li>Страх клиентов спрашивать</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Наше решение</h3>
+                    <div class="feature-box">
+                        <strong>24/7 доступ</strong> к информации через Telegram
+                    </div>
+                    <div class="feature-box">
+                        <strong>Анонимность</strong> вопросов — нет барьеров
+                    </div>
+                    <div class="feature-box">
+                        <strong>Мгновенные ответы</strong> через ИИ
+                    </div>
+                    <div class="feature-box">
+                        <strong>Стандартизированная</strong> достоверная информация
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 3: Product -->
+    <div class="slide">
+        <h2>💡 Продукт</h2>
+        <div class="content">
+            <div class="grid-2">
+                <div class="bot-preview">
+                    <h3 style="text-align: center; margin-bottom: 20px;">@IslamicFinanceAI_Bot</h3>
+                    <div class="message">⚠️ Важно! Я — ИИ-ассистент по исламским финансам.</div>
+                    <div class="message">❌ Я не выдаю фатвы.</div>
+                    <div class="message">✅ Для фатв обращайтесь к муфтиям.</div>
+                    <div class="message" style="background: #0f3460;">Пользователь: Что такое мурабаха?</div>
+                    <div class="message">Мурабаха — продажа с известной наценкой...</div>
+                </div>
+                <div>
+                    <h3>Команды бота</h3>
+                    <table>
+                        <tr><th>Команда</th><th>Описание</th></tr>
+                        <tr><td>/start</td><td>Приветствие и дисклеймер</td></tr>
+                        <tr><td>/help</td><td>Справка по использованию</td></tr>
+                        <tr><td>/search</td><td>Поиск по базе знаний</td></tr>
+                        <tr><td>/glossary</td><td>Глоссарий терминов</td></tr>
+                        <tr><td>/contracts</td><td>Исламские контракты</td></tr>
+                        <tr><td>/cases</td><td>Международные кейсы</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 4: Market -->
+    <div class="slide">
+        <h2>📊 Рынок</h2>
+        <div class="content">
+            <div class="grid-3">
+                <div class="stat">
+                    <div class="stat-number">15+ млн</div>
+                    <div class="stat-label">Мусульман в РФ</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">4</div>
+                    <div class="stat-label">Региона пилота ЦБ</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">2023</div>
+                    <div class="stat-label">Старт пилота</div>
+                </div>
+            </div>
+            <h3 style="text-align: center; margin-top: 40px;">Целевые регионы</h3>
+            <div class="grid-2" style="margin-top: 30px;">
+                <div class="card">
+                    <div class="icon">🕌</div>
+                    <h3>Татарстан</h3>
+                    <p>Центр исламских финансов в РФ</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🏛️</div>
+                    <h3>Башкортостан</h3>
+                    <p>Развитая банковская система</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 5: Tech Stack -->
+    <div class="slide">
+        <h2>⚙️ Технологический стек</h2>
+        <div class="content">
+            <div class="grid-3">
+                <div class="card">
+                    <div class="icon">💬</div>
+                    <h3>Telegram Bot API</h3>
+                    <p>Привычный мессенджер для клиентов</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🧠</div>
+                    <h3>Claude 3.5 Sonnet</h3>
+                    <p>ИИ от Anthropic</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🐍</div>
+                    <h3>Python 3.12</h3>
+                    <p>Надежный backend</p>
+                </div>
+            </div>
+            <div class="highlight" style="margin-top: 50px;">
+                <strong>Преимущества Claude:</strong><br>
+                200K контекст | Мультиязычность | Точность финансовых терминов
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 6: Audience -->
+    <div class="slide">
+        <h2>👥 Целевая аудитория</h2>
+        <div class="content">
+            <div class="grid-2">
+                <div class="card">
+                    <div class="icon">🎯</div>
+                    <h3>Первичная</h3>
+                    <ul>
+                        <li>Возраст 25-45 лет</li>
+                        <li>Мусульмане, интересующиеся финансами</li>
+                        <li>IT-специалисты, предприниматели</li>
+                        <li>Активные пользователи Telegram</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="icon">🌐</div>
+                    <h3>Вторичная</h3>
+                    <ul>
+                        <li>Не-мусульмане (ESG/SRI)</li>
+                        <li>Инвесторы в альтернативные финансы</li>
+                        <li>Экспаты из Muslim-majority стран</li>
+                        <li>Любопытные технологии</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 7: Benefits -->
+    <div class="slide">
+        <h2>💰 Бизнес-преимущества</h2>
+        <div class="content">
+            <div class="grid-3">
+                <div class="card">
+                    <div class="icon">📉</div>
+                    <h3>Снижение издержек</h3>
+                    <p>Нагрузка на колл-центр ↓ 30-40%</p>
+                    <p>Автоматизация рутинных консультаций</p>
+                </div>
+                <div class="card">
+                    <div class="icon">📈</div>
+                    <h3>Рост продаж</h3>
+                    <p>Pre-qualified leads</p>
+                    <p>Конверсия ↑ 15-25%</p>
+                    <p>Стоимость лида ↓ 40%</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🏆</div>
+                    <h3>Репутация</h3>
+                    <p>Технологичный образ</p>
+                    <p>Доступность для молодежи</p>
+                    <p>Прозрачность</p>
+                </div>
+            </div>
+            <div class="highlight" style="margin-top: 40px;">
+                Соответствие нормам: бот указывает на необходимость фатвы у муфтия
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 8: Competition -->
+    <div class="slide">
+        <h2>🏁 Конкурентный анализ</h2>
+        <div class="content">
+            <table>
+                <tr>
+                    <th>Параметр</th>
+                    <th>Наш бот</th>
+                    <th>Моб. приложение</th>
+                    <th>Колл-центр</th>
+                </tr>
+                <tr>
+                    <td>Стоимость внедрения</td>
+                    <td style="color: #4ade80;">Низкая</td>
+                    <td style="color: #f87171;">Высокая</td>
+                    <td>Средняя</td>
+                </tr>
+                <tr>
+                    <td>Доступность 24/7</td>
+                    <td style="color: #4ade80;">✓</td>
+                    <td style="color: #4ade80;">✓</td>
+                    <td style="color: #f87171;">✗</td>
+                </tr>
+                <tr>
+                    <td>Масштабируемость</td>
+                    <td style="color: #4ade80;">Высокая</td>
+                    <td>Средняя</td>
+                    <td style="color: #f87171;">Низкая</td>
+                </tr>
+                <tr>
+                    <td>Время ответа</td>
+                    <td style="color: #4ade80;">&lt;5 сек</td>
+                    <td style="color: #4ade80;">&lt;3 сек</td>
+                    <td>2-10 мин</td>
+                </tr>
+            </table>
+            <div class="highlight" style="margin-top: 40px;">
+                🏆 Уникальное преимущество: Первый ИИ-консультант по исламским финансам в РФ
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 9: Roadmap -->
+    <div class="slide">
+        <h2>🗺️ План внедрения</h2>
+        <div class="content">
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-dot">1</div>
+                    <h3>Месяц 1</h3>
+                    <p>MVP</p>
+                    <p style="font-size: 0.9em; color: #a0a0a0;">Тест с фокус-группой</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">2</div>
+                    <h3>Месяц 2-3</h3>
+                    <p>Пилот</p>
+                    <p style="font-size: 0.9em; color: #a0a0a0;">Интеграция с CRM</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">3</div>
+                    <h3>Месяц 4-6</h3>
+                    <p>Масштабирование</p>
+                    <p style="font-size: 0.9em; color: #a0a0a0;">Все регионы</p>
+                </div>
+            </div>
+            <div class="grid-2" style="margin-top: 50px;">
+                <div class="card">
+                    <h3>Фаза 1: MVP</h3>
+                    <ul>
+                        <li>Базовый функционал</li>
+                        <li>Интеграция Claude API</li>
+                        <li>Тест с 50 пользователями</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>Фаза 2: Пилот</h3>
+                    <ul>
+                        <li>Интеграция с CRM банка</li>
+                        <li>Аналитика и метрики</li>
+                        <li>Запуск в Татарстане</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 10: Financial Model -->
+    <div class="slide">
+        <h2>💵 Финансовая модель</h2>
+        <div class="content">
+            <div class="grid-2">
+                <div>
+                    <h3>Затраты (месячные)</h3>
+                    <table>
+                        <tr><td>API Claude (10K запросов)</td><td>$50-100</td></tr>
+                        <tr><td>Сервер (облако)</td><td>$20-50</td></tr>
+                        <tr><td>Поддержка и доработки</td><td>$500-1000</td></tr>
+                        <tr style="background: #e94560;"><td><strong>Итого</strong></td><td><strong>$570-1150</strong></td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3>Эффект</h3>
+                    <div class="stat">
+                        <div class="stat-number" style="font-size: 2em;">↓30%</div>
+                        <div class="stat-label">Нагрузка на колл-центр</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number" style="font-size: 2em;">↑15-25%</div>
+                        <div class="stat-label">Рост конверсии</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number" style="font-size: 2em;">↓40%</div>
+                        <div class="stat-label">Стоимость лида</div>
+                    </div>
+                </div>
+            </div>
+            <div class="highlight" style="margin-top: 40px;">
+                ROI: Окупаемость за 2-3 месяца при активном использовании
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 11: Recommendation -->
+    <div class="slide">
+        <h2>📋 Рекомендация правлению</h2>
+        <div class="content">
+            <div class="grid-2">
+                <div>
+                    <h3>Предлагается</h3>
+                    <div class="feature-box">
+                        <strong>1.</strong> Запустить пилот в течение 1 месяца
+                    </div>
+                    <div class="feature-box">
+                        <strong>2.</strong> Выделить бюджет $1000-1500 на первые 3 месяца
+                    </div>
+                    <div class="feature-box">
+                        <strong>3.</strong> Назначить куратора от бизнеса и IT
+                    </div>
+                </div>
+                <div>
+                    <h3>KPI для оценки</h3>
+                    <ul>
+                        <li>Количество обращений</li>
+                        <li>Удовлетворенность (NPS)</li>
+                        <li>Конверсия в заявки</li>
+                        <li>Снижение нагрузки на колл-центр</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="highlight" style="margin-top: 40px;">
+                Ожидаемый результат: Улучшение клиентского опыта и снижение операционных издержек<br>при минимальных вложениях
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 12: Thank You -->
+    <div class="slide">
+        <div class="logo">🤖</div>
+        <h1>Спасибо за внимание!</h1>
+        <p class="subtitle">Вопросы?</p>
+        <div class="content" style="margin-top: 50px;">
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Контакты</h3>
+                    <p>GitHub: kimiclawai/islamic-finance-knowledge-base</p>
+                    <p>Telegram: @IslamicFinanceAI_Bot</p>
+                </div>
+                <div class="card">
+                    <h3>Статус</h3>
+                    <p>✅ Продукт готов к пилоту</p>
+                    <p>✅ Инфраструктура развернута</p>
+                    <p>🔄 Ожидаем решения правления</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="nav">
+        <button onclick="prevSlide()">← Назад</button>
+        <button onclick="nextSlide()">Вперед →</button>
+    </div>
+    
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                slide.classList.toggle('active', index === currentSlide);
+            });
+            document.getElementById('slideNumber').textContent = `${currentSlide + 1} / ${totalSlides}`;
+            document.getElementById('progress').style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
+        }
+        
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+        
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+        
+        updateSlide();
+    </script>
+</body>
+</html>
